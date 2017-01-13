@@ -14,7 +14,6 @@ import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
-import org.apache.http.ParseException;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
@@ -30,7 +29,6 @@ import org.apache.http.concurrent.FutureCallback;
 import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
-import org.apache.log4j.Logger;
 
 import com.tgb.ccl.http.common.HttpConfig;
 import com.tgb.ccl.http.common.HttpMethods;
@@ -46,31 +44,30 @@ import com.tgb.ccl.http.httpclient.builder.HACB;
  * @version 1.0
  */
 public class HttpAsyncClientUtil{
-	private static final Logger logger = Logger.getLogger(HttpAsyncClientUtil.class);
 	
 	/**
-	 * 创建client对象
-	 * 并设置全局的标准cookie策略
+	 * 判定是否开启连接池、及url是http还是https <br>
+	 * 		如果已开启连接池，则自动调用build方法，从连接池中获取client对象<br>
+	 * 		否则，直接创建client对象<br>
 	 * @return
 	 * @throws HttpProcessException
 	 */
-	public static CloseableHttpAsyncClient create(String url) throws HttpProcessException{
-		if(url.toLowerCase().startsWith("https://")){
-			return HACB.custom().ssl().build();
+	public static void create(HttpConfig config) throws HttpProcessException{
+		if(config.hacb()!=null && config.hacb().isSetPool){ //如果设置了hcb对象，且配置了连接池，则直接从连接池取
+			if(config.url().toLowerCase().startsWith("https://")){
+				config.asynclient(config.hacb().ssl().build());
+			}else{
+				config.asynclient(config.hacb().build());
+			}
 		}else{
-			return HACB.custom().build();
+			if(config.asynclient()==null){//如果为空，设为默认client对象
+				if(config.url().toLowerCase().startsWith("https://")){
+					config.asynclient(HACB.custom().ssl().build());
+				}else{
+					config.asynclient(HACB.custom().build());
+				}
+			}
 		}
-	}
-	
-	/**
-	 * 请求资源或服务
-	 * 
-	 * @param config
-	 * @return
-	 * @throws HttpProcessException
-	 */
-	public static void send(HttpConfig config) throws HttpProcessException {
-		execute(config);
 	}
 	
 	//-----------华----丽----分----割----线--------------
@@ -89,7 +86,7 @@ public class HttpAsyncClientUtil{
 	 * @throws HttpProcessException 
 	 */
 	public static void get(CloseableHttpAsyncClient client, String url, Header[] headers, HttpContext context, String encoding, IHandler handler) throws HttpProcessException {
-		send(HttpConfig.custom().method(HttpMethods.GET).asynclient(client).url(url).headers(headers).context(context).encoding(encoding).handler(handler));
+		get(HttpConfig.custom().method(HttpMethods.GET).asynclient(client).url(url).headers(headers).context(context).encoding(encoding).handler(handler));
 	}
 	
 	/**
@@ -116,7 +113,7 @@ public class HttpAsyncClientUtil{
 	 * @throws HttpProcessException 
 	 */
 	public static void post(CloseableHttpAsyncClient client, String url, Map<String,Object> parasMap, Header[] headers, HttpContext context, String encoding, IHandler handler) throws HttpProcessException {
-		send(HttpConfig.custom().method(HttpMethods.POST).asynclient(client).url(url).map(parasMap).headers(headers).context(context).encoding(encoding).handler(handler));
+		post(HttpConfig.custom().method(HttpMethods.POST).asynclient(client).url(url).map(parasMap).headers(headers).context(context).encoding(encoding).handler(handler));
 	}
 
 	/**
@@ -143,7 +140,7 @@ public class HttpAsyncClientUtil{
 	 * @throws HttpProcessException 
 	 */
 	public static void put(CloseableHttpAsyncClient client, String url, Map<String,Object>parasMap,Header[] headers, HttpContext context, String encoding, IHandler handler) throws HttpProcessException {
-		send(HttpConfig.custom().method(HttpMethods.PUT).asynclient(client).url(url).map(parasMap).headers(headers).context(context).encoding(encoding).handler(handler));
+		put(HttpConfig.custom().method(HttpMethods.PUT).asynclient(client).url(url).map(parasMap).headers(headers).context(context).encoding(encoding).handler(handler));
 	}
 
 	/**
@@ -169,7 +166,7 @@ public class HttpAsyncClientUtil{
 	 * @throws HttpProcessException 
 	 */
 	public static void delete(CloseableHttpAsyncClient client, String url, Header[] headers, HttpContext context, String encoding, IHandler handler) throws HttpProcessException {
-		send(HttpConfig.custom().method(HttpMethods.DELETE).asynclient(client).url(url).headers(headers).context(context).encoding(encoding).handler(handler));
+		delete(HttpConfig.custom().method(HttpMethods.DELETE).asynclient(client).url(url).headers(headers).context(context).encoding(encoding).handler(handler));
 	}
 
 	/**
@@ -195,7 +192,7 @@ public class HttpAsyncClientUtil{
 	 * @throws HttpProcessException 
 	 */
 	public static void patch(CloseableHttpAsyncClient client, String url, Map<String,Object>parasMap, Header[] headers, HttpContext context, String encoding, IHandler handler) throws HttpProcessException {
-		send(HttpConfig.custom().method(HttpMethods.PATCH).asynclient(client).url(url).map(parasMap).headers(headers).context(context).encoding(encoding).handler(handler));
+		patch(HttpConfig.custom().method(HttpMethods.PATCH).asynclient(client).url(url).map(parasMap).headers(headers).context(context).encoding(encoding).handler(handler));
 	}
 
 	/**
@@ -220,7 +217,7 @@ public class HttpAsyncClientUtil{
 	 * @throws HttpProcessException 
 	 */
 	public static void head(CloseableHttpAsyncClient client, String url, Header[] headers, HttpContext context, String encoding, IHandler handler) throws HttpProcessException {
-		send(HttpConfig.custom().method(HttpMethods.HEAD).asynclient(client).url(url).headers(headers).context(context).encoding(encoding).handler(handler));
+		head(HttpConfig.custom().method(HttpMethods.HEAD).asynclient(client).url(url).headers(headers).context(context).encoding(encoding).handler(handler));
 	}
 
 	/**
@@ -246,7 +243,7 @@ public class HttpAsyncClientUtil{
 	 * @throws HttpProcessException 
 	 */
 	public static void options(CloseableHttpAsyncClient client, String url, Header[] headers, HttpContext context, String encoding, IHandler handler) throws HttpProcessException {
-		send(HttpConfig.custom().method(HttpMethods.OPTIONS).asynclient(client).url(url).headers(headers).context(context).encoding(encoding).handler(handler));
+		options(HttpConfig.custom().method(HttpMethods.OPTIONS).asynclient(client).url(url).headers(headers).context(context).encoding(encoding).handler(handler));
 	}
 
 	/**
@@ -271,7 +268,7 @@ public class HttpAsyncClientUtil{
 	 * @throws HttpProcessException 
 	 */
 	public static void trace(CloseableHttpAsyncClient client, String url, Header[] headers, HttpContext context, String encoding, IHandler handler) throws HttpProcessException {
-		send(HttpConfig.custom().method(HttpMethods.TRACE).asynclient(client).url(url).headers(headers).context(context).encoding(encoding).handler(handler));
+		trace(HttpConfig.custom().method(HttpMethods.TRACE).asynclient(client).url(url).headers(headers).context(context).encoding(encoding).handler(handler));
 	}
 
 	/**
@@ -295,7 +292,7 @@ public class HttpAsyncClientUtil{
 	 * @throws HttpProcessException 
 	 */
 	public static void down(CloseableHttpAsyncClient client, String url, Header[] headers, HttpContext context, OutputStream out) throws HttpProcessException {
-		execute(HttpConfig.custom().method(HttpMethods.GET).asynclient(client).url(url).headers(headers).context(context).out(out));
+		down(HttpConfig.custom().method(HttpMethods.GET).asynclient(client).url(url).headers(headers).context(context).out(out));
 	}
 	
 	/**
@@ -308,6 +305,22 @@ public class HttpAsyncClientUtil{
 	public static void down(HttpConfig config) throws HttpProcessException {
 		execute(config.method(HttpMethods.GET));
 	}
+
+	//-----------华----丽----分----割----线--------------
+	//-----------华----丽----分----割----线--------------
+	//-----------华----丽----分----割----线--------------
+
+	/**
+	 * 请求资源或服务
+	 * 
+	 * @param config
+	 * @return
+	 * @throws HttpProcessException
+	 */
+	public static void send(HttpConfig config) throws HttpProcessException {
+		execute(config);
+	}
+	
 	
 	/**
 	 * 请求资源或服务
@@ -317,9 +330,7 @@ public class HttpAsyncClientUtil{
 	 * @throws HttpProcessException 
 	 */
 	private static void execute(HttpConfig config) throws HttpProcessException {
-		if(config.asynclient()==null){//检测是否设置了client
-			config.asynclient(create(config.url()));
-		}
+		create(config);//获取AsyncHttpClient对象
 		try {
 			//创建请求对象
 			HttpRequestBase request = getRequest(config.url(), config.method());
@@ -335,18 +346,18 @@ public class HttpAsyncClientUtil{
 				config.url(Utils.checkHasParas(config.url(), nvps, config.inenc()));
 				
 				//装填参数
-				HttpEntity entity = Utils.map2List(nvps, config.map(), config.inenc());
+				HttpEntity entity = Utils.map2HttpEntity(nvps, config.map(), config.inenc());
 				
 				//设置参数到请求对象中
 				((HttpEntityEnclosingRequestBase)request).setEntity(entity);
 				
-				logger.info("请求地址："+config.url());
-				logger.info("请求参数："+nvps.toString());
+				Utils.info("请求地址："+config.url());
+				Utils.info("请求参数："+nvps.toString());
 			}else{
 				int idx = config.url().indexOf("?");
-				logger.info("请求地址："+config.url().substring(0, (idx>0 ? idx:config.url().length())));
+				Utils.info("请求地址："+config.url().substring(0, (idx>0 ? idx:config.url().length())));
 				if(idx>0){
-					logger.info("请求参数："+config.url().substring(idx+1));
+					Utils.info("请求参数："+config.url().substring(idx+1));
 				}
 			}
 			//执行请求
@@ -400,7 +411,7 @@ public class HttpAsyncClientUtil{
 		try {
 			client.close();
 		} catch (IOException e) {
-			logger.error(e);
+			Utils.exception(e);
 		}
 	}
 	/**
@@ -416,7 +427,7 @@ public class HttpAsyncClientUtil{
 				((CloseableHttpResponse)resp).close();
 			}
 		} catch (IOException e) {
-			logger.error(e);
+			Utils.exception(e);
 		}
 	}
 	
@@ -493,8 +504,10 @@ public class HttpAsyncClientUtil{
 					EntityUtils.consume(entity);
 				}
 			}
-		} catch (ParseException | IOException e) {
-			logger.error(e);
+		} catch (UnsupportedOperationException e) {
+			Utils.exception(e);
+		} catch (IOException e) {
+			Utils.exception(e);
 		}
 		return body;
 	}
@@ -511,7 +524,7 @@ public class HttpAsyncClientUtil{
 		try {
 			resp.getEntity().writeTo(out);
 			EntityUtils.consume(resp.getEntity());
-		} catch (ParseException | IOException e) {
+		} catch (IOException e) {
 			throw new HttpProcessException(e);
 		}finally{
 			close(resp);
@@ -551,35 +564,5 @@ public class HttpAsyncClientUtil{
 		 * @return
 		 */
 		Object cancelled();
-	}
-	
-	public static void main(String[] args) throws HttpProcessException {
-		String url="http://blog.csdn.net/xiaoxian8023";
-		IHandler handler = new IHandler() {
-			@Override
-			public Object failed(Exception e) {
-				System.out.println("失败了");
-				return null;
-			}
-			
-			@Override
-			public Object completed(String respBody) {
-				System.out.println("获取结果："+respBody.length());
-				return null;
-			}
-			
-			@Override
-			public Object cancelled() {
-				System.out.println("取消了");
-				return null;
-			}
-
-			@Override
-			public Object down(OutputStream out) {
-				System.out.println("开始下载");
-				return null;
-			}
-		};
-		HttpAsyncClientUtil.send(HttpConfig.custom().url(url).handler(handler));
 	}
 }
